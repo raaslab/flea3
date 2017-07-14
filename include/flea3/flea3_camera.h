@@ -21,6 +21,7 @@ class Flea3Camera {
   const unsigned serial_id() const { return std::atoi(serial_.c_str()); }
 
   bool GrabImage(sensor_msgs::Image& image_msg);
+  bool GrabImageNonBlocking(sensor_msgs::Image& image_msg);
 //  void GrabImageMetadata(flea3::ImageMetadata& image_metadata_msg);
 
   bool Connect();
@@ -63,7 +64,8 @@ class Flea3Camera {
   void SetGamma(double& gamma);
 
   // Trigger
-  void SetTrigger(int& trigger_source, int& trigger_polarity);
+  void SetTrigger(int& trigger_source, int& trigger_polarity,
+                  int &trigger_mode);
   bool PollForTriggerReady();
   bool FireSoftwareTrigger();
 
@@ -71,6 +73,10 @@ class Flea3Camera {
   void SetStrobe(int& strobe_control, int& polarity);
   void TurnOffStrobe(const std::vector<int>& strobes);
 
+  // Blocking/Non-blocking
+  void setNonBlocking();
+  void setBlocking();
+  
   bool capturing_{false};
   BusManager bus_manager_;
   Camera camera_;

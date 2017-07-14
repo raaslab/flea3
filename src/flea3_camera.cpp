@@ -134,7 +134,8 @@ void Flea3Camera::Configure(Config& config) {
   // Strobe
   SetStrobe(config.strobe_control, config.strobe_polarity);
   // Trigger
-  SetTrigger(config.trigger_source, config.trigger_polarity);
+  SetTrigger(config.trigger_source, config.trigger_polarity,
+             config.trigger_mode);
 
   // Save this config
   config_ = config;
@@ -205,6 +206,27 @@ void Flea3Camera::SetFrameRate(double& frame_rate) {
   if (prop.onOff) {
     frame_rate = prop.absValue;
   }
+}
+
+void Flea3Camera::setNonBlocking() {
+  FC2Config config;
+  PgrError(camera_.GetConfiguration(&config), "Failed to get configuration");
+  config.grabTimeout = TIMEOUT_NONE; // return immediately
+  PgrError(camera_.SetConfiguration(&config), "Failed to set configuration");
+}
+
+void Flea3Camera::setBlocking() {
+  FC2Config config;
+  PgrError(camera_.GetConfiguration(&config), "Failed to get configuration");
+  config.grabTimeout = 1000; // set to one second;
+  PgrError(camera_.SetConfiguration(&config), "Failed to set configuration");
+}
+
+bool Flea3Camera::GrabImageNonBlocking(sensor_msgs::Image& image_msg) {
+  setNonBlocking();
+  bool ret = GrabImage(image_msg);
+  setBlocking();
+  return (ret);
 }
 
 bool Flea3Camera::GrabImage(sensor_msgs::Image& image_msg) {
@@ -363,7 +385,8 @@ void Flea3Camera::SetRoi(const Format7Info& format7_info,
   format7_settings.offsetY = height_setting.second;
 }
 
-void Flea3Camera::SetTrigger(int& trigger_source, int& trigger_polarity) {
+  void Flea3Camera::SetTrigger(int& trigger_source, int& trigger_polarity,
+                               int &trigger_mode) {
   TriggerModeInfo trigger_mode_info;
   PgrWarn(camera_.GetTriggerModeInfo(&trigger_mode_info),
           "Failed to get trigger mode info");
@@ -380,24 +403,26 @@ void Flea3Camera::SetTrigger(int& trigger_source, int& trigger_polarity) {
   }
 
   // Turn off external trigger
-  TriggerMode trigger_mode;
+  TriggerMode trigger_mode_struct;
   if (trigger_source == Flea3Dyn_ts_off) {
-    trigger_mode.onOff = false;
-    PgrWarn(camera_.SetTriggerMode(&trigger_mode),
+    trigger_mode_struct.onOff = false;
+    PgrWarn(camera_.SetTriggerMode(&trigger_mode_struct),
             "Failed to set trigger mode");
     return;
   }
 
-  trigger_mode.onOff = true;
-  trigger_mode.mode = 0;
-  trigger_mode.parameter = 0;
+  trigger_mode_struct.onOff = true;
+  trigger_mode_struct.mode = trigger_mode;
+  trigger_mode_struct.parameter = 0;
+  
   // Source 7 means software trigger
-  trigger_mode.source = trigger_source;
-  trigger_mode.polarity = trigger_polarity;
-  PgrWarn(camera_.SetTriggerMode(&trigger_mode), "Failed to set trigger mode");
-  PgrWarn(camera_.GetTriggerMode(&trigger_mode), "Failed to get trigger mode");
-  trigger_source = trigger_mode.source;
-  trigger_polarity = trigger_mode.polarity;
+  trigger_mode_struct.source = trigger_source;
+  trigger_mode_struct.polarity = trigger_polarity;
+  PgrWarn(camera_.SetTriggerMode(&trigger_mode_struct), "Failed to set trigger mode");
+  PgrWarn(camera_.GetTriggerMode(&trigger_mode_struct), "Failed to get trigger mode");
+  trigger_source = trigger_mode_struct.source;
+  trigger_polarity = trigger_mode_struct.polarity;
+  trigger_mode = trigger_mode_struct.mode;
 }
 
 void Flea3Camera::SetStrobe(int& strobe_control, int& polarity) {
